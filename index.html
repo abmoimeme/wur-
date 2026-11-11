@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wuré</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Figtree:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Layout: one phone screen. Indigo dyed-cloth ground, a carved wooden board in the middle,
+     each player's granary strip above and below it. Gold marks whose turn it is. */
+  --cloth:#141d3a;
+  --cloth-2:#1d2a52;
+  --wood:#b0703d;
+  --wood-dark:#6b3d1e;
+  --pit:#3d2110;
+  --seed:#cfd3c4;
+  --seed-shade:#8d927f;
+  --gold:#f3c333;
+  --ink:#f4ecdb;
+  --muted:#a8b0cc;
+  --danger:#ff8f6b;
+  --display:"Syne","Trebuchet MS",sans-serif;
+  --body:"Figtree","Segoe UI",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  background:
+    radial-gradient(circle at 12% 8%, rgba(255,255,255,.05) 0 2px, transparent 3px 26px, rgba(255,255,255,.035) 27px 28px, transparent 29px),
+    radial-gradient(circle at 88% 94%, rgba(255,255,255,.05) 0 2px, transparent 3px 34px, rgba(255,255,255,.035) 35px 36px, transparent 37px),
+    linear-gradient(170deg,var(--cloth-2),var(--cloth) 55%);
+  background-color:var(--cloth);
+  color:var(--ink);
+  font-family:var(--body);
+  font-size:16px;
+  line-height:1.4;
+  -webkit-tap-highlight-color:transparent;
+}
+.app{
+  min-height:100%;
+  max-width:620px;
+  margin:0 auto;
+  padding:14px 16px 18px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.mark{
+  font-family:var(--display);font-weight:800;font-size:30px;letter-spacing:.14em;margin:0;line-height:1;
+}
+.mark span{color:var(--gold)}
+.tools{display:flex;gap:6px;flex-wrap:wrap}
+button{font:inherit;color:inherit;cursor:pointer}
+.tool{
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);
+  border-radius:999px;padding:7px 12px;font-size:13px;font-weight:600;
+}
+.tool:active{background:rgba(255,255,255,.16)}
+.tool[aria-pressed="false"]{opacity:.5;text-decoration:line-through}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+
+/* Player strips */
+.player{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 14px;border-radius:14px;
+  background:rgba(255,255,255,.05);
+  border:1px solid transparent;
+  transition:border-color .25s, background .25s;
+}
+.player.active{border-color:var(--gold);background:rgba(243,195,51,.1)}
+.player .dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.2);flex:none}
+.player.active .dot{background:var(--gold);box-shadow:0 0 0 4px rgba(243,195,51,.22)}
+.player .who{flex:1;min-width:0}
+.player .name{font-weight:700;font-size:17px;overflow-wrap:anywhere}
+.player .sub{font-size:12px;color:var(--muted)}
+.granary{text-align:right;flex:none}
+.granary .num{font-family:var(--display);font-weight:800;font-size:30px;line-height:1;font-variant-numeric:tabular-nums}
+.granary .num small{font-family:var(--body);font-size:12px;font-weight:600;color:var(--muted)}
+.granary .bar{width:96px;height:5px;border-radius:3px;background:rgba(255,255,255,.12);margin-top:6px;overflow:hidden}
+.granary .bar i{display:block;height:100%;background:var(--gold);width:0;transition:width .4s}
+.bump{animation:bump .45s}
+@keyframes bump{40%{transform:scale(1.25);color:var(--gold)}}
+
+/* Board */
+.board{
+  position:relative;
+  background:
+    repeating-linear-gradient(92deg, rgba(0,0,0,.07) 0 3px, transparent 3px 11px),
+    linear-gradient(180deg,#c07d47,var(--wood) 40%,#96592c);
+  border-radius:26px;
+  padding:clamp(18px,5vw,28px) clamp(10px,3vw,18px);
+  box-shadow:0 2px 0 #d39a66 inset, 0 -6px 0 var(--wood-dark) inset, 0 18px 30px rgba(0,0,0,.45);
+  display:grid;
+  grid-template-columns:repeat(6,1fr);
+  column-gap:clamp(5px,1.6vw,10px);
+  row-gap:clamp(26px,7vw,38px);
+}
+.board::after{ /* carved line between the two camps */
+  content:"";position:absolute;left:6%;right:6%;top:50%;height:2px;
+  background:rgba(60,30,10,.45);box-shadow:0 1px 0 rgba(255,220,180,.25);
+}
+.pit{
+  position:relative;aspect-ratio:1;border-radius:50%;border:0;padding:0;
+  background:radial-gradient(circle at 50% 38%, #2a1508, var(--pit) 70%);
+  box-shadow:0 3px 6px rgba(0,0,0,.6) inset, 0 1px 0 rgba(255,225,190,.35);
+  transition:box-shadow .2s, transform .12s;
+}
+.pit.legal{box-shadow:0 3px 6px rgba(0,0,0,.6) inset, 0 0 0 3px var(--gold)}
+.pit.legal:active{transform:scale(.94)}
+.pit.from{box-shadow:0 3px 6px rgba(0,0,0,.6) inset, 0 0 0 3px rgba(255,255,255,.55)}
+.pit.drop{animation:drop .22s}
+@keyframes drop{50%{transform:scale(1.09)}}
+.pit.take{animation:take .5s 2;box-shadow:0 3px 6px rgba(0,0,0,.6) inset, 0 0 0 4px var(--danger)}
+@keyframes take{50%{background:#7a2d14}}
+.seed{
+  position:absolute;width:19%;height:19%;border-radius:50%;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle at 35% 30%, #fff, var(--seed) 45%, var(--seed-shade));
+  box-shadow:0 1px 2px rgba(0,0,0,.6);
+  pointer-events:none;
+}
+.count{
+  position:absolute;left:50%;transform:translateX(-50%);
+  min-width:24px;padding:1px 6px;border-radius:999px;
+  background:var(--cloth);color:var(--ink);
+  font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;text-align:center;
+  pointer-events:none;
+}
+.pit.top .count{top:-17px}
+.pit.bottom .count{bottom:-17px}
+.pit.zero .count{opacity:.45}
+
+/* Status */
+.status{
+  min-height:48px;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;
+  text-align:center;font-weight:600;text-wrap:balance;
+}
+.status .hand{
+  background:var(--gold);color:#221a05;border-radius:999px;padding:2px 10px;font-size:13px;font-weight:700;
+}
+.cta{
+  background:var(--gold);color:#221a05;border:0;border-radius:999px;padding:10px 20px;font-weight:700;
+}
+.ghost{background:transparent;border:1px solid rgba(255,255,255,.3);border-radius:999px;padding:8px 16px;font-weight:600;font-size:14px}
+.toast{
+  position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);
+  background:#0b1024;border:1px solid rgba(255,255,255,.18);color:var(--ink);
+  padding:10px 16px;border-radius:12px;font-size:14px;max-width:min(92vw,420px);text-align:center;
+  opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;z-index:5;
+}
+.toast.show{opacity:1;transform:translateX(-50%)}
+
+/* Sponsors: always on screen under the board, display only */
+.sponsors{display:flex;flex-direction:column;gap:6px}
+.sponsors .lab{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-align:center}
+.sponsors .logos{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.sponsors .tile{
+  background:#fff;border-radius:12px;height:54px;padding:7px 8px;
+  display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;
+}
+.sponsors img{max-width:100%;max-height:100%;object-fit:contain;display:block;min-width:0}
+.sponsors .tile b{color:#2c4a2e;font-size:12px;line-height:1.05;font-weight:700}
+footer{margin-top:auto;text-align:center;font-size:12px;color:var(--muted);padding-top:6px}
+
+/* Dialogs */
+dialog{
+  border:1px solid rgba(255,255,255,.16);border-radius:20px;background:#17213f;color:var(--ink);
+  padding:22px;width:min(92vw,440px);max-height:88vh;overflow:auto;
+}
+dialog::backdrop{background:rgba(5,8,20,.7)}
+dialog h2{font-family:var(--display);font-weight:800;font-size:22px;margin:0 0 14px;text-wrap:balance}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field label,.field .lab{font-size:13px;font-weight:600;color:var(--muted)}
+.field input[type=text]{
+  font:inherit;color:var(--ink);background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.2);
+  border-radius:10px;padding:10px 12px;width:100%;
+}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{
+  flex:1;min-width:88px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.2);
+  border-radius:10px;padding:10px 8px;font-weight:600;font-size:14px;
+}
+.seg button[aria-pressed="true"]{background:var(--gold);color:#221a05;border-color:var(--gold)}
+.row{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:6px}
+.rules{padding-left:20px;margin:0 0 16px;display:flex;flex-direction:column;gap:10px;font-size:15px}
+.rules b{color:var(--gold)}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none !important;transition:none !important}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1 class="mark">WUR<span>É</span></h1>
+    <div class="tools">
+      <button class="tool" id="btnNew" type="button"></button>
+      <button class="tool" id="btnRules" type="button"></button>
+      <button class="tool" id="btnLang" type="button"></button>
+      <button class="tool" id="btnSound" type="button" aria-pressed="true"></button>
+    </div>
+  </header>
+
+  <section class="player" id="p1" aria-live="polite">
+    <span class="dot"></span>
+    <div class="who"><div class="name"></div><div class="sub"></div></div>
+    <div class="granary"><div class="num"><span class="n">0</span> <small>/ 25</small></div><div class="bar"><i></i></div></div>
+  </section>
+
+  <div class="board" id="board" role="group" aria-label="Wuré board"></div>
+
+  <section class="player" id="p0" aria-live="polite">
+    <span class="dot"></span>
+    <div class="who"><div class="name"></div><div class="sub"></div></div>
+    <div class="granary"><div class="num"><span class="n">0</span> <small>/ 25</small></div><div class="bar"><i></i></div></div>
+  </section>
+
+  <div class="status" id="status" aria-live="polite"></div>
+
+  <section class="sponsors" aria-labelledby="spLab">
+    <div class="lab" id="spLab"></div>
+    <div class="logos">
+      <div class="tile"><img src="sponsors/planet-auto-hub.png" alt="Planet Auto Hub"></div>
+      <div class="tile"><img src="sponsors/nioro-farms.png" alt=""><b>Nioro<br>Farms</b></div>
+      <div class="tile"><img src="sponsors/jollof-ventures.png" alt="Jollof Ventures"></div>
+    </div>
+  </section>
+
+  <footer>© 2026 Nioro Resources LLC</footer>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<dialog id="dlgNew">
+  <h2 id="newTitle"></h2>
+  <div class="field">
+    <span class="lab" id="labMode"></span>
+    <div class="seg" id="segMode">
+      <button type="button" data-v="cpu"></button>
+      <button type="button" data-v="two"></button>
+    </div>
+  </div>
+  <div class="field">
+    <label for="inName0" id="labName0"></label>
+    <input type="text" id="inName0" maxlength="16" autocomplete="off">
+  </div>
+  <div class="field" id="fieldName1">
+    <label for="inName1" id="labName1"></label>
+    <input type="text" id="inName1" maxlength="16" autocomplete="off">
+  </div>
+  <div class="field" id="fieldLevel">
+    <span class="lab" id="labLevel"></span>
+    <div class="seg" id="segLevel">
+      <button type="button" data-v="easy"></button>
+      <button type="button" data-v="medium"></button>
+      <button type="button" data-v="hard"></button>
+    </div>
+  </div>
+  <div class="field">
+    <span class="lab" id="labFirst"></span>
+    <div class="seg" id="segFirst">
+      <button type="button" data-v="0"></button>
+      <button type="button" data-v="1"></button>
+    </div>
+  </div>
+  <div class="row">
+    <button type="button" class="ghost" id="newCancel"></button>
+    <button type="button" class="cta" id="newStart"></button>
+  </div>
+</dialog>
+
+<dialog id="dlgRules">
+  <h2 id="rulesTitle"></h2>
+  <ol class="rules" id="rulesList"></ol>
+  <div class="row"><button type="button" class="cta" id="rulesClose"></button></div>
+</dialog>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- Text ---------- */
+var T = {
+  en:{
+    sponsors:"Sponsored by", newGame:"New game", rules:"Rules", lang:"Français", sound:"Sound",
+    computer:"Computer", player2:"Player 2",
+    yourRowBottom:"Bottom row", yourRowTop:"Top row",
+    toPlay:function(n){return n+" to play. Tap a pit on your row.";},
+    thinking:function(n){return n+" is thinking…";},
+    sowing:function(n){return n+" is sowing";},
+    inHand:function(n){return n+" in hand";},
+    emptyPit:"That pit is empty.",
+    notYours:"That pit is on the other side.",
+    mustFeed:"Your opponent has no seeds. You must play a pit that gives them some.",
+    slam:"That would take every seed on the other side, so nothing is captured.",
+    took:function(n,c){return n+" captures "+c+".";},
+    wins:function(n,a,b){return n+" wins "+a+" to "+b+".";},
+    draw:"Draw, 24 each.",
+    noFeed:"No move can feed the other side. Each player keeps the seeds on their row.",
+    again:"Play again", endCount:"Stop and count",
+    endCountDone:"Game stopped. Each player keeps the seeds on their row.",
+    setup:"New game", mode:"Game", vsCpu:"Against the computer", two:"Two players, one phone",
+    name0:"Player 1 (bottom row)", name1:"Player 2 (top row)",
+    level:"Computer level", easy:"Easy", medium:"Medium", hard:"Hard",
+    first:"Who plays first", cancel:"Cancel", start:"Start", close:"Got it",
+    rulesTitle:"How to play Wuré",
+    rulesList:[
+      "<b>The board.</b> 12 pits, 6 on each side, with 4 seeds in every pit. Your pits are the row in front of you.",
+      "<b>Sowing.</b> On your turn, pick up all the seeds from one of your pits and drop them one by one in the next pits, going counter-clockwise. With 12 seeds or more you go all the way round and skip the pit you started from.",
+      "<b>Capturing.</b> If your last seed lands in a pit on the other side and makes it 2 or 3, you take those seeds. Then look at the pit just before it: if it is also on the other side with 2 or 3, take it too, and keep going back.",
+      "<b>Feed your opponent.</b> If the other side is empty, you must play a move that gives it seeds. A move that would capture every seed on the other side captures nothing.",
+      "<b>Winning.</b> The first player with 25 seeds wins. 24 each is a draw. If nobody can feed the other side, each player keeps the seeds left on their row."
+    ]
+  },
+  fr:{
+    sponsors:"Avec le soutien de", newGame:"Nouvelle partie", rules:"Règles", lang:"English", sound:"Son",
+    computer:"Ordinateur", player2:"Joueur 2",
+    yourRowBottom:"Rangée du bas", yourRowTop:"Rangée du haut",
+    toPlay:function(n){return "À "+n+" de jouer. Touchez une case de votre rangée.";},
+    thinking:function(n){return n+" réfléchit…";},
+    sowing:function(n){return n+" sème";},
+    inHand:function(n){return n+" en main";},
+    emptyPit:"Cette case est vide.",
+    notYours:"Cette case est dans l'autre camp.",
+    mustFeed:"Votre adversaire n'a plus de graines. Vous devez jouer une case qui lui en donne.",
+    slam:"Ce coup prendrait toutes les graines du camp adverse, donc rien n'est capturé.",
+    took:function(n,c){return n+" capture "+c+".";},
+    wins:function(n,a,b){return n+" gagne "+a+" à "+b+".";},
+    draw:"Match nul, 24 partout.",
+    noFeed:"Aucun coup ne peut nourrir l'autre camp. Chacun garde les graines de sa rangée.",
+    again:"Rejouer", endCount:"Arrêter et compter",
+    endCountDone:"Partie arrêtée. Chacun garde les graines de sa rangée.",
+    setup:"Nouvelle partie", mode:"Partie", vsCpu:"Contre l'ordinateur", two:"Deux joueurs, un téléphone",
+    name0:"Joueur 1 (rangée du bas)", name1:"Joueur 2 (rangée du haut)",
+    level:"Niveau de l'ordinateur", easy:"Facile", medium:"Moyen", hard:"Difficile",
+    first:"Qui commence", cancel:"Annuler", start:"Commencer", close:"Compris",
+    rulesTitle:"Comment jouer au Wuré",
+    rulesList:[
+      "<b>Le plateau.</b> 12 cases, 6 par camp, avec 4 graines dans chaque case. Vos cases sont la rangée devant vous.",
+      "<b>Semer.</b> À votre tour, prenez toutes les graines d'une de vos cases et déposez-les une par une dans les cases suivantes, dans le sens inverse des aiguilles d'une montre. Avec 12 graines ou plus, vous faites le tour complet en sautant la case de départ.",
+      "<b>Capturer.</b> Si votre dernière graine tombe dans une case adverse qui contient alors 2 ou 3 graines, vous les prenez. Regardez ensuite la case précédente : si elle est aussi dans le camp adverse avec 2 ou 3 graines, prenez-la aussi, et ainsi de suite.",
+      "<b>Nourrir l'adversaire.</b> Si le camp adverse est vide, vous devez jouer un coup qui lui donne des graines. Un coup qui prendrait toutes les graines adverses ne capture rien.",
+      "<b>Gagner.</b> Le premier joueur à 25 graines gagne. 24 partout, c'est match nul. Si personne ne peut nourrir l'autre camp, chacun garde les graines de sa rangée."
+    ]
+  }
+};
+
+/* ---------- State ---------- */
+var S = {
+  board:[4,4,4,4,4,4,4,4,4,4,4,4], score:[0,0], turn:0, over:false, endMsg:"",
+  mode:"cpu", level:"medium", names:["AB",""], lang:"en", sound:true, from:-1, first:0
+};
+var busy=false, cpuTimer=null, gameId=0, stable=null;
+function t(k){return T[S.lang][k];}
+function nameOf(p){
+  if(p===1 && S.mode==="cpu") return t("computer");
+  var n=(S.names[p]||"").trim();
+  return n || (p===0 ? (S.lang==="fr"?"Joueur 1":"Player 1") : t("player2"));
+}
+
+/* ---------- Rules engine ---------- */
+function side(i){return i<6?0:1;}
+function sideSum(b,p){var s=0;for(var i=p*6;i<p*6+6;i++)s+=b[i];return s;}
+function simulate(b,p,i){
+  var nb=b.slice(), n=nb[i], j=i, steps=[];
+  nb[i]=0;
+  while(n>0){ j=(j+1)%12; if(j===i) continue; nb[j]++; n--; steps.push(j); }
+  var cap=[], k=j;
+  while(side(k)!==p && (nb[k]===2||nb[k]===3)){ cap.push(k); k=(k+11)%12; }
+  var captured=0, slam=false;
+  if(cap.length){
+    var tot=0; for(var c=0;c<cap.length;c++) tot+=nb[cap[c]];
+    if(tot===sideSum(nb,1-p)){ slam=true; cap=[]; }
+    else { captured=tot; for(c=0;c<cap.length;c++) nb[cap[c]]=0; }
+  }
+  return {board:nb, captured:captured, steps:steps, cap:cap, slam:slam};
+}
+function legalMoves(b,p){
+  var out=[], mustFeed=sideSum(b,1-p)===0;
+  for(var i=p*6;i<p*6+6;i++){
+    if(b[i]===0) continue;
+    if(mustFeed && sideSum(simulate(b,p,i).board,1-p)===0) continue;
+    out.push(i);
+  }
+  return out;
+}
+
+/* ---------- Computer player ---------- */
+function search(b,sc,p,depth,alpha,beta,me){
+  if(sc[0]>=25||sc[1]>=25) return (sc[me]-sc[1-me])*10 + (sc[me]>=25?500:-500);
+  var moves=legalMoves(b,p);
+  if(!moves.length){
+    var a=sc[me]+sideSum(b,me), o=sc[1-me]+sideSum(b,1-me);
+    return (a-o)*10 + (a>o?500:(a<o?-500:0));
+  }
+  if(depth===0) return (sc[me]-sc[1-me])*10;
+  var best = p===me ? -1e9 : 1e9;
+  for(var m=0;m<moves.length;m++){
+    var r=simulate(b,p,moves[m]);
+    var ns=[sc[0],sc[1]]; ns[p]+=r.captured;
+    var v=search(r.board,ns,1-p,depth-1,alpha,beta,me);
+    if(p===me){ if(v>best)best=v; if(best>alpha)alpha=best; }
+    else { if(v<best)best=v; if(best<beta)beta=best; }
+    if(alpha>=beta) break;
+  }
+  return best;
+}
+function cpuChoose(){
+  var moves=legalMoves(S.board,1);
+  if(S.level==="easy" && Math.random()<0.4) return moves[Math.floor(Math.random()*moves.length)];
+  var depth = S.level==="hard" ? 10 : (S.level==="medium" ? 4 : 2);
+  var best=-1e9, picks=[];
+  for(var m=0;m<moves.length;m++){
+    var r=simulate(S.board,1,moves[m]);
+    var ns=[S.score[0],S.score[1]+r.captured];
+    var v=search(r.board,ns,0,depth-1,-1e9,1e9,1);
+    if(v>best){best=v;picks=[moves[m]];} else if(v===best) picks.push(moves[m]);
+  }
+  return picks[Math.floor(Math.random()*picks.length)];
+}
+
+/* ---------- Sound ---------- */
+var ac=null;
+function audio(){
+  if(!S.sound) return null;
+  try{
+    if(!ac){ var AC=window.AudioContext||window.webkitAudioContext; if(!AC) return null; ac=new AC(); }
+    if(ac.state==="suspended") ac.resume();
+    return ac;
+  }catch(e){ return null; }
+}
+function tone(freq,end,dur,vol,type,delay){
+  var a=audio(); if(!a) return;
+  try{
+    var t0=a.currentTime+(delay||0), o=a.createOscillator(), g=a.createGain();
+    o.type=type||"triangle";
+    o.frequency.setValueAtTime(freq,t0);
+    o.frequency.exponentialRampToValueAtTime(end,t0+dur);
+    g.gain.setValueAtTime(vol,t0);
+    g.gain.exponentialRampToValueAtTime(0.001,t0+dur);
+    o.connect(g); g.connect(a.destination); o.start(t0); o.stop(t0+dur+0.02);
+  }catch(e){}
+}
+function sndDrop(){ tone(480+Math.random()*220,130,0.08,0.3,"triangle"); }
+function sndPick(){ tone(220,330,0.1,0.2,"sine"); }
+function sndTake(){ tone(520,780,0.14,0.25,"square"); tone(780,1040,0.18,0.22,"square",0.13); }
+function sndWin(){ [523,659,784,1047].forEach(function(f,i){ tone(f,f,0.22,0.25,"triangle",i*0.14); }); }
+function sndNo(){ tone(180,120,0.15,0.2,"sawtooth"); }
+
+/* ---------- Rendering ---------- */
+var boardEl=document.getElementById("board"), pits=[];
+var order=[11,10,9,8,7,6,0,1,2,3,4,5];
+order.forEach(function(i){
+  var b=document.createElement("button");
+  b.type="button"; b.className="pit "+(i<6?"bottom":"top"); b.dataset.i=i;
+  b.innerHTML='<span class="seeds"></span><span class="count">0</span>';
+  b.addEventListener("click",function(){ onPit(i); });
+  boardEl.appendChild(b); pits[i]=b;
+});
+function drawPit(i){
+  var n=S.board[i], el=pits[i], box=el.firstChild, show=Math.min(n,18), html="";
+  for(var k=0;k<show;k++){
+    var r = show===1 ? 0 : 31*Math.sqrt((k+0.6)/show);
+    var ang = k*2.4 + i*1.3;
+    html+='<i class="seed" style="left:'+(50+r*Math.cos(ang)).toFixed(1)+'%;top:'+(50+r*Math.sin(ang)).toFixed(1)+'%"></i>';
+  }
+  box.innerHTML=html;
+  el.lastChild.textContent=n;
+  el.classList.toggle("zero",n===0);
+  el.setAttribute("aria-label",(side(i)===0?nameOf(0):nameOf(1))+", "+n);
+}
+function humanTurn(){ return !S.over && !busy && !(S.mode==="cpu" && S.turn===1); }
+function render(){
+  var legal = humanTurn() ? legalMoves(S.board,S.turn) : [];
+  for(var i=0;i<12;i++){
+    drawPit(i);
+    pits[i].classList.toggle("legal",legal.indexOf(i)>=0);
+    pits[i].classList.toggle("from",i===S.from);
+  }
+  for(var p=0;p<2;p++){
+    var el=document.getElementById("p"+p);
+    el.classList.toggle("active",!S.over && S.turn===p);
+    el.querySelector(".name").textContent=nameOf(p);
+    el.querySelector(".sub").textContent= p===0 ? t("yourRowBottom") : t("yourRowTop");
+    el.querySelector(".n").textContent=S.score[p];
+    el.querySelector(".bar i").style.width=Math.min(100,S.score[p]*4)+"%";
+  }
+  if(!busy){ try{ stable=JSON.parse(JSON.stringify(S)); }catch(e){} }
+  renderStatus();
+}
+function renderStatus(hand){
+  var st=document.getElementById("status"); st.innerHTML="";
+  function txt(s){ var d=document.createElement("span"); d.textContent=s; st.appendChild(d); }
+  if(S.over){
+    txt(S.endMsg);
+    var b=document.createElement("button"); b.className="cta"; b.type="button"; b.textContent=t("again");
+    b.addEventListener("click",function(){ newGame(); }); st.appendChild(b);
+    return;
+  }
+  if(typeof hand==="number"){
+    txt(t("sowing")(nameOf(S.turn)));
+    var h=document.createElement("span"); h.className="hand"; h.textContent=t("inHand")(hand); st.appendChild(h);
+    return;
+  }
+  if(S.mode==="cpu" && S.turn===1){ txt(t("thinking")(nameOf(1))); return; }
+  txt(t("toPlay")(nameOf(S.turn)));
+  if(!busy && sideSum(S.board,0)+sideSum(S.board,1)<=6){
+    var e=document.createElement("button"); e.className="ghost"; e.type="button"; e.textContent=t("endCount");
+    e.addEventListener("click",function(){ finishByCount(t("endCountDone")); render(); }); st.appendChild(e);
+  }
+}
+function renderText(){
+  document.documentElement.lang=S.lang;
+  document.getElementById("btnNew").textContent=t("newGame");
+  document.getElementById("spLab").textContent=t("sponsors");
+  document.getElementById("btnRules").textContent=t("rules");
+  document.getElementById("btnLang").textContent=t("lang");
+  var bs=document.getElementById("btnSound"); bs.textContent=t("sound"); bs.setAttribute("aria-pressed",S.sound?"true":"false");
+  document.getElementById("newTitle").textContent=t("setup");
+  document.getElementById("labMode").textContent=t("mode");
+  var mb=document.querySelectorAll("#segMode button"); mb[0].textContent=t("vsCpu"); mb[1].textContent=t("two");
+  document.getElementById("labName0").textContent=t("name0");
+  document.getElementById("labName1").textContent=t("name1");
+  document.getElementById("labLevel").textContent=t("level");
+  var lb=document.querySelectorAll("#segLevel button"); lb[0].textContent=t("easy"); lb[1].textContent=t("medium"); lb[2].textContent=t("hard");
+  document.getElementById("labFirst").textContent=t("first");
+  document.getElementById("newCancel").textContent=t("cancel");
+  document.getElementById("newStart").textContent=t("start");
+  document.getElementById("rulesTitle").textContent=t("rulesTitle");
+  document.getElementById("rulesList").innerHTML=t("rulesList").map(function(x){return "<li>"+x+"</li>";}).join("");
+  document.getElementById("rulesClose").textContent=t("close");
+}
+var toastTimer=null;
+function toast(msg){
+  var el=document.getElementById("toast"); el.textContent=msg; el.classList.add("show");
+  clearTimeout(toastTimer); toastTimer=setTimeout(function(){ el.classList.remove("show"); },3200);
+}
+function wait(ms){ return new Promise(function(r){ setTimeout(r,ms); }); }
+function bump(p){
+  var n=document.getElementById("p"+p).querySelector(".n");
+  n.classList.remove("bump"); void n.offsetWidth; n.classList.add("bump");
+}
+
+/* ---------- Game flow ---------- */
+function onPit(i){
+  if(S.over || busy) return;
+  if(S.mode==="cpu" && S.turn===1) return;
+  audio();
+  if(side(i)!==S.turn){ toast(t("notYours")); sndNo(); return; }
+  if(S.board[i]===0){ toast(t("emptyPit")); sndNo(); return; }
+  if(legalMoves(S.board,S.turn).indexOf(i)<0){ toast(t("mustFeed")); sndNo(); return; }
+  playMove(i);
+}
+async function playMove(i){
+  var id=gameId, p=S.turn, sim=simulate(S.board,p,i);
+  busy=true;
+  var hand=S.board[i]; S.board[i]=0; S.from=i;
+  render(); renderStatus(hand); sndPick();
+  var speed = sim.steps.length>12 ? 110 : 190;
+  for(var s=0;s<sim.steps.length;s++){
+    await wait(speed); if(id!==gameId) return;
+    var j=sim.steps[s]; S.board[j]++; hand--;
+    drawPit(j);
+    pits[j].classList.remove("drop"); void pits[j].offsetWidth; pits[j].classList.add("drop");
+    renderStatus(hand); sndDrop();
+  }
+  if(sim.cap.length){
+    await wait(280); if(id!==gameId) return;
+    sim.cap.forEach(function(k){ pits[k].classList.add("take"); });
+    sndTake();
+    await wait(900); if(id!==gameId) return;
+    sim.cap.forEach(function(k){ pits[k].classList.remove("take"); });
+    S.score[p]+=sim.captured; bump(p);
+    toast(t("took")(nameOf(p),sim.captured));
+  } else if(sim.slam){
+    toast(t("slam"));
+  }
+  S.board=sim.board;
+  S.turn=1-p;
+  busy=false;
+  checkEnd();
+  render();
+  if(!S.over) scheduleCpu();
+}
+function setResult(prefix){
+  S.over=true;
+  var a=S.score[0], b=S.score[1], msg;
+  if(a===b) msg=t("draw").replace("24",String(a));
+  else if(a>b) msg=t("wins")(nameOf(0),a,b);
+  else msg=t("wins")(nameOf(1),b,a);
+  S.endMsg=(prefix?prefix+" ":"")+msg;
+  sndWin();
+}
+function finishByCount(prefix){
+  S.score[0]+=sideSum(S.board,0); S.score[1]+=sideSum(S.board,1);
+  for(var i=0;i<12;i++) S.board[i]=0;
+  S.from=-1;
+  setResult(prefix);
+}
+function checkEnd(){
+  if(S.score[0]>=25 || S.score[1]>=25 || (S.score[0]===24 && S.score[1]===24)){ setResult(""); return; }
+  if(!legalMoves(S.board,S.turn).length) finishByCount(t("noFeed"));
+}
+function scheduleCpu(){
+  clearTimeout(cpuTimer);
+  if(S.over || S.mode!=="cpu" || S.turn!==1) return;
+  var id=gameId;
+  cpuTimer=setTimeout(function(){
+    if(id!==gameId || S.over || busy) return;
+    playMove(cpuChoose());
+  },750);
+}
+function newGame(){
+  gameId++; busy=false; clearTimeout(cpuTimer);
+  S.board=[4,4,4,4,4,4,4,4,4,4,4,4]; S.score=[0,0]; S.turn=S.first; S.over=false; S.endMsg=""; S.from=-1;
+  render(); scheduleCpu();
+}
+
+/* ---------- Controls ---------- */
+var dlgNew=document.getElementById("dlgNew"), dlgRules=document.getElementById("dlgRules");
+var draft={mode:"cpu",level:"medium",first:"0"};
+function seg(id,key){
+  var btns=document.querySelectorAll("#"+id+" button");
+  function paint(){
+    for(var i=0;i<btns.length;i++) btns[i].setAttribute("aria-pressed",btns[i].dataset.v===String(draft[key])?"true":"false");
+    document.getElementById("fieldLevel").style.display = draft.mode==="cpu" ? "" : "none";
+    document.getElementById("fieldName1").style.display = draft.mode==="cpu" ? "none" : "";
+    var fb=document.querySelectorAll("#segFirst button");
+    fb[0].textContent=document.getElementById("inName0").value.trim()||nameOf(0);
+    fb[1].textContent= draft.mode==="cpu" ? t("computer") : (document.getElementById("inName1").value.trim()||t("player2"));
+  }
+  for(var i=0;i<btns.length;i++) btns[i].addEventListener("click",function(){ draft[key]=this.dataset.v; paintAll(); });
+  return paint;
+}
+var painters=[seg("segMode","mode"),seg("segLevel","level"),seg("segFirst","first")];
+function paintAll(){ painters.forEach(function(f){f();}); }
+document.getElementById("inName0").addEventListener("input",paintAll);
+document.getElementById("inName1").addEventListener("input",paintAll);
+function openDialog(d){ try{ d.showModal(); }catch(e){ d.setAttribute("open",""); } }
+function closeDialog(d){ try{ d.close(); }catch(e){ d.removeAttribute("open"); } }
+
+document.getElementById("btnNew").addEventListener("click",function(){
+  draft={mode:S.mode,level:S.level,first:String(S.first)};
+  document.getElementById("inName0").value=S.names[0]||"";
+  document.getElementById("inName1").value=S.names[1]||"";
+  paintAll(); openDialog(dlgNew);
+});
+document.getElementById("newCancel").addEventListener("click",function(){ closeDialog(dlgNew); });
+document.getElementById("newStart").addEventListener("click",function(){
+  S.mode=draft.mode; S.level=draft.level; S.first=Number(draft.first);
+  S.names[0]=document.getElementById("inName0").value.trim();
+  S.names[1]=document.getElementById("inName1").value.trim();
+  closeDialog(dlgNew); audio(); newGame();
+});
+document.getElementById("btnRules").addEventListener("click",function(){ openDialog(dlgRules); });
+document.getElementById("rulesClose").addEventListener("click",function(){ closeDialog(dlgRules); });
+document.getElementById("btnLang").addEventListener("click",function(){
+  S.lang = S.lang==="en" ? "fr" : "en";
+  if(S.over){ var keep=S.score.slice(); S.over=false; S.score=keep; setResultQuiet(); }
+  renderText(); render();
+});
+function setResultQuiet(){ var s=S.sound; S.sound=false; setResult(""); S.sound=s; }
+document.getElementById("btnSound").addEventListener("click",function(){
+  S.sound=!S.sound; renderText(); if(S.sound){ audio(); sndDrop(); }
+});
+
+/* ---------- Boot (keeps the game across page updates) ---------- */
+function start(saved){
+  if(saved && saved.board && saved.board.length===12){
+    for(var k in saved) if(Object.prototype.hasOwnProperty.call(S,k)) S[k]=saved[k];
+  }
+  renderText(); render(); scheduleCpu();
+}
+try{
+  var hot = window.claude && window.claude.hot;
+  if(hot && hot.snapshot) hot.snapshot(function(){ return stable; });
+  if(hot && hot.ready) hot.ready(function(d){ start(d||{}); });
+  else start((hot && hot.data) || {});
+}catch(e){ start({}); }
+})();
+</script>
+</body>
+</html>
