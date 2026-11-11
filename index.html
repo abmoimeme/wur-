@@ -154,6 +154,17 @@ button{font:inherit;color:inherit;cursor:pointer}
   opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;z-index:5;
 }
 .toast.show{opacity:1;transform:translateX(-50%)}
+
+/* Sponsors: always on screen under the board, display only */
+.sponsors{display:flex;flex-direction:column;gap:6px}
+.sponsors .lab{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-align:center}
+.sponsors .logos{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.sponsors .tile{
+  background:#fff;border-radius:12px;height:54px;padding:7px 8px;
+  display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;
+}
+.sponsors img{max-width:100%;max-height:100%;object-fit:contain;display:block;min-width:0}
+.sponsors .tile b{color:#2c4a2e;font-size:12px;line-height:1.05;font-weight:700}
 footer{margin-top:auto;text-align:center;font-size:12px;color:var(--muted);padding-top:6px}
 
 /* Dialogs */
@@ -211,6 +222,15 @@ dialog h2{font-family:var(--display);font-weight:800;font-size:22px;margin:0 0 1
 
   <div class="status" id="status" aria-live="polite"></div>
 
+  <section class="sponsors" aria-labelledby="spLab">
+    <div class="lab" id="spLab"></div>
+    <div class="logos">
+      <div class="tile"><img src="sponsors/planet-auto-hub.png" alt="Planet Auto Hub"></div>
+      <div class="tile"><img src="sponsors/nioro-farms.png" alt=""><b>Nioro<br>Farms</b></div>
+      <div class="tile"><img src="sponsors/jollof-ventures.png" alt="Jollof Ventures"></div>
+    </div>
+  </section>
+
   <footer>© 2026 Nioro Resources LLC</footer>
 </div>
 
@@ -267,7 +287,7 @@ dialog h2{font-family:var(--display);font-weight:800;font-size:22px;margin:0 0 1
 /* ---------- Text ---------- */
 var T = {
   en:{
-    newGame:"New game", rules:"Rules", lang:"Français", sound:"Sound",
+    sponsors:"Sponsored by", newGame:"New game", rules:"Rules", lang:"Français", sound:"Sound",
     computer:"Computer", player2:"Player 2",
     yourRowBottom:"Bottom row", yourRowTop:"Top row",
     toPlay:function(n){return n+" to play. Tap a pit on your row.";},
@@ -298,7 +318,7 @@ var T = {
     ]
   },
   fr:{
-    newGame:"Nouvelle partie", rules:"Règles", lang:"English", sound:"Son",
+    sponsors:"Avec le soutien de", newGame:"Nouvelle partie", rules:"Règles", lang:"English", sound:"Son",
     computer:"Ordinateur", player2:"Joueur 2",
     yourRowBottom:"Rangée du bas", yourRowTop:"Rangée du haut",
     toPlay:function(n){return "À "+n+" de jouer. Touchez une case de votre rangée.";},
@@ -497,6 +517,7 @@ function renderStatus(hand){
 function renderText(){
   document.documentElement.lang=S.lang;
   document.getElementById("btnNew").textContent=t("newGame");
+  document.getElementById("spLab").textContent=t("sponsors");
   document.getElementById("btnRules").textContent=t("rules");
   document.getElementById("btnLang").textContent=t("lang");
   var bs=document.getElementById("btnSound"); bs.textContent=t("sound"); bs.setAttribute("aria-pressed",S.sound?"true":"false");
